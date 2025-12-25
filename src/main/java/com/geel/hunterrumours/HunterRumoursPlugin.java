@@ -23,6 +23,7 @@ import net.runelite.client.game.npcoverlay.HighlightedNpc;
 import net.runelite.client.game.npcoverlay.NpcOverlayService;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
@@ -97,6 +98,10 @@ public class HunterRumoursPlugin extends Plugin {
 
     @Inject
     private WorldMapPointManager worldMapPointManager;
+
+    @Inject
+    private PluginManager pluginManager;
+
     private int latestInteractionTime = -1;
 
     @Provides
@@ -462,6 +467,43 @@ public class HunterRumoursPlugin extends Plugin {
     }
 
     /**
+     * Checks if the Fairy Rings plugin is currently enabled.
+     */
+    private boolean isFairyRingPluginEnabled() {
+        return pluginManager.getPlugins().stream()
+                .anyMatch(plugin -> plugin.getName().equals("Fairy Rings") && pluginManager.isPluginEnabled(plugin));
+    }
+
+    /**
+     * Performs the actual scroll manipulation to highlight and scroll to the fairy ring code.
+     */
+    private void performFairyRingScroll(Widget foundCodeWidget, Widget panelList, Widget scrollBarContainer,
+                                       Widget scrollBarHandle, Widget scrollBarHandleTop, Widget scrollBarHandleBottom,
+                                       Widget scrollBarUpButton) {
+        // Scroll to the code entry and highlight it
+        int panelScrollY = Math.min(foundCodeWidget.getRelativeY(), panelList.getScrollHeight() - panelList.getHeight());
+        panelList.setScrollY(panelScrollY);
+        panelList.revalidateScroll();
+        foundCodeWidget.setTextColor(0x00FF00);
+        foundCodeWidget.setText("(Rumour) " + foundCodeWidget.getText());
+
+        // Determine scrollbar placement -- has to be done manually, I think, because just setting the panel
+        // scroll value doesn't actually adjust its scrollbar (which makes sense)
+        double codeEntryPlacement = (double) foundCodeWidget.getRelativeY() / (double) panelList.getScrollHeight();
+        int maxHandleY = scrollBarContainer.getHeight() - 4; // Not sure where the 4 comes from... just padding?
+        int handleY = (int) ((double) scrollBarContainer.getHeight() * codeEntryPlacement) + scrollBarUpButton.getHeight();
+        handleY = Math.min(handleY, maxHandleY);
+        int handleBottomY = handleY + (scrollBarHandle.getHeight() - scrollBarHandleBottom.getHeight());
+
+        scrollBarHandle.setOriginalY(handleY);
+        scrollBarHandleTop.setOriginalY(handleY);
+        scrollBarHandleBottom.setOriginalY(handleBottomY);
+        scrollBarHandle.revalidateScroll();
+        scrollBarHandleTop.revalidateScroll();
+        scrollBarHandleBottom.revalidateScroll();
+    }
+
+    /**
      * Called when the fairy ring dialog is opened.
      * Responsible for scrolling to the relevant rumour code and highlighting it, if relevant.
      */
@@ -559,27 +601,16 @@ public class HunterRumoursPlugin extends Plugin {
             return;
         }
 
-        // Scroll to the code entry and highlight it
-        int panelScrollY = Math.min(foundCodeWidget.getRelativeY(), panelList.getScrollHeight() - panelList.getHeight());
-        panelList.setScrollY(panelScrollY);
-        panelList.revalidateScroll();
-        foundCodeWidget.setTextColor(0x00FF00);
-        foundCodeWidget.setText("(Rumour) " + foundCodeWidget.getText());
-
-        // Determine scrollbar placement -- has to be done manually, I think, because just setting the panel
-        // scroll value doesn't actually adjust its scrollbar (which makes sense)
-        double codeEntryPlacement = (double) foundCodeWidget.getRelativeY() / (double) panelList.getScrollHeight();
-        int maxHandleY = scrollBarContainer.getHeight() - 4; // Not sure where the 4 comes from... just padding?
-        int handleY = (int) ((double) scrollBarContainer.getHeight() * codeEntryPlacement) + scrollBarUpButton.getHeight();
-        handleY = Math.min(handleY, maxHandleY);
-        int handleBottomY = handleY + (scrollBarHandle.getHeight() - scrollBarHandleBottom.getHeight());
-
-        scrollBarHandle.setOriginalY(handleY);
-        scrollBarHandleTop.setOriginalY(handleY);
-        scrollBarHandleBottom.setOriginalY(handleBottomY);
-        scrollBarHandle.revalidateScroll();
-        scrollBarHandleTop.revalidateScroll();
-        scrollBarHandleBottom.revalidateScroll();
+        // Check if fairy ring plugin is enabled and wrap scroll code in invokeLater if needed to avoid conflict
+        if (isFairyRingPluginEnabled()) {
+            clientThread.invokeLater(() -> performFairyRingScroll(foundCodeWidget, panelList, 
+                    scrollBarContainer, scrollBarHandle, scrollBarHandleTop, 
+                    scrollBarHandleBottom, scrollBarUpButton));
+        } else {
+            // If fairy ring plugin is not enabled, run the scroll code immediately
+            performFairyRingScroll(foundCodeWidget, panelList, scrollBarContainer, scrollBarHandle, 
+                    scrollBarHandleTop, scrollBarHandleBottom, scrollBarUpButton);
+        }
     }
 
     /**
