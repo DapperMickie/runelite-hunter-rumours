@@ -23,6 +23,7 @@ import net.runelite.client.game.npcoverlay.HighlightedNpc;
 import net.runelite.client.game.npcoverlay.NpcOverlayService;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
@@ -97,6 +98,10 @@ public class HunterRumoursPlugin extends Plugin {
 
     @Inject
     private WorldMapPointManager worldMapPointManager;
+
+    @Inject
+    private PluginManager pluginManager;
+
     private int latestInteractionTime = -1;
 
     @Provides
@@ -559,27 +564,68 @@ public class HunterRumoursPlugin extends Plugin {
             return;
         }
 
-        // Scroll to the code entry and highlight it
-        int panelScrollY = Math.min(foundCodeWidget.getRelativeY(), panelList.getScrollHeight() - panelList.getHeight());
-        panelList.setScrollY(panelScrollY);
-        panelList.revalidateScroll();
-        foundCodeWidget.setTextColor(0x00FF00);
-        foundCodeWidget.setText("(Rumour) " + foundCodeWidget.getText());
+        // Check if fairy ring plugin is enabled
+        boolean isFairyRingPluginEnabled = pluginManager.getPlugins().stream()
+                .anyMatch(plugin -> plugin.getName().equals("Fairy Rings") && pluginManager.isPluginEnabled(plugin));
 
-        // Determine scrollbar placement -- has to be done manually, I think, because just setting the panel
-        // scroll value doesn't actually adjust its scrollbar (which makes sense)
-        double codeEntryPlacement = (double) foundCodeWidget.getRelativeY() / (double) panelList.getScrollHeight();
-        int maxHandleY = scrollBarContainer.getHeight() - 4; // Not sure where the 4 comes from... just padding?
-        int handleY = (int) ((double) scrollBarContainer.getHeight() * codeEntryPlacement) + scrollBarUpButton.getHeight();
-        handleY = Math.min(handleY, maxHandleY);
-        int handleBottomY = handleY + (scrollBarHandle.getHeight() - scrollBarHandleBottom.getHeight());
+        // If fairy ring plugin is enabled, wrap the scroll code in invokeLater to avoid conflict
+        if (isFairyRingPluginEnabled) {
+            // Capture the widgets we need in final variables for the lambda
+            final Widget finalFoundCodeWidget = foundCodeWidget;
+            final Widget finalPanelList = panelList;
+            final Widget finalScrollBarContainer = scrollBarContainer;
+            final Widget finalScrollBarHandle = scrollBarHandle;
+            final Widget finalScrollBarHandleTop = scrollBarHandleTop;
+            final Widget finalScrollBarHandleBottom = scrollBarHandleBottom;
+            final Widget finalScrollBarUpButton = scrollBarUpButton;
+            
+            clientThread.invokeLater(() -> {
+                // Scroll to the code entry and highlight it
+                int panelScrollY = Math.min(finalFoundCodeWidget.getRelativeY(), finalPanelList.getScrollHeight() - finalPanelList.getHeight());
+                finalPanelList.setScrollY(panelScrollY);
+                finalPanelList.revalidateScroll();
+                finalFoundCodeWidget.setTextColor(0x00FF00);
+                finalFoundCodeWidget.setText("(Rumour) " + finalFoundCodeWidget.getText());
 
-        scrollBarHandle.setOriginalY(handleY);
-        scrollBarHandleTop.setOriginalY(handleY);
-        scrollBarHandleBottom.setOriginalY(handleBottomY);
-        scrollBarHandle.revalidateScroll();
-        scrollBarHandleTop.revalidateScroll();
-        scrollBarHandleBottom.revalidateScroll();
+                // Determine scrollbar placement -- has to be done manually, I think, because just setting the panel
+                // scroll value doesn't actually adjust its scrollbar (which makes sense)
+                double codeEntryPlacement = (double) finalFoundCodeWidget.getRelativeY() / (double) finalPanelList.getScrollHeight();
+                int maxHandleY = finalScrollBarContainer.getHeight() - 4; // Not sure where the 4 comes from... just padding?
+                int handleY = (int) ((double) finalScrollBarContainer.getHeight() * codeEntryPlacement) + finalScrollBarUpButton.getHeight();
+                handleY = Math.min(handleY, maxHandleY);
+                int handleBottomY = handleY + (finalScrollBarHandle.getHeight() - finalScrollBarHandleBottom.getHeight());
+
+                finalScrollBarHandle.setOriginalY(handleY);
+                finalScrollBarHandleTop.setOriginalY(handleY);
+                finalScrollBarHandleBottom.setOriginalY(handleBottomY);
+                finalScrollBarHandle.revalidateScroll();
+                finalScrollBarHandleTop.revalidateScroll();
+                finalScrollBarHandleBottom.revalidateScroll();
+            });
+        } else {
+            // If fairy ring plugin is not enabled, run the scroll code immediately
+            // Scroll to the code entry and highlight it
+            int panelScrollY = Math.min(foundCodeWidget.getRelativeY(), panelList.getScrollHeight() - panelList.getHeight());
+            panelList.setScrollY(panelScrollY);
+            panelList.revalidateScroll();
+            foundCodeWidget.setTextColor(0x00FF00);
+            foundCodeWidget.setText("(Rumour) " + foundCodeWidget.getText());
+
+            // Determine scrollbar placement -- has to be done manually, I think, because just setting the panel
+            // scroll value doesn't actually adjust its scrollbar (which makes sense)
+            double codeEntryPlacement = (double) foundCodeWidget.getRelativeY() / (double) panelList.getScrollHeight();
+            int maxHandleY = scrollBarContainer.getHeight() - 4; // Not sure where the 4 comes from... just padding?
+            int handleY = (int) ((double) scrollBarContainer.getHeight() * codeEntryPlacement) + scrollBarUpButton.getHeight();
+            handleY = Math.min(handleY, maxHandleY);
+            int handleBottomY = handleY + (scrollBarHandle.getHeight() - scrollBarHandleBottom.getHeight());
+
+            scrollBarHandle.setOriginalY(handleY);
+            scrollBarHandleTop.setOriginalY(handleY);
+            scrollBarHandleBottom.setOriginalY(handleBottomY);
+            scrollBarHandle.revalidateScroll();
+            scrollBarHandleTop.revalidateScroll();
+            scrollBarHandleBottom.revalidateScroll();
+        }
     }
 
     /**
