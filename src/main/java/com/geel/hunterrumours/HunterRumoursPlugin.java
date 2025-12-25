@@ -603,18 +603,9 @@ public class HunterRumoursPlugin extends Plugin {
 
         // Check if fairy ring plugin is enabled and wrap scroll code in invokeLater if needed to avoid conflict
         if (isFairyRingPluginEnabled()) {
-            // Capture the widgets we need in final variables for the lambda
-            final Widget finalFoundCodeWidget = foundCodeWidget;
-            final Widget finalPanelList = panelList;
-            final Widget finalScrollBarContainer = scrollBarContainer;
-            final Widget finalScrollBarHandle = scrollBarHandle;
-            final Widget finalScrollBarHandleTop = scrollBarHandleTop;
-            final Widget finalScrollBarHandleBottom = scrollBarHandleBottom;
-            final Widget finalScrollBarUpButton = scrollBarUpButton;
-            
-            clientThread.invokeLater(() -> performFairyRingScroll(finalFoundCodeWidget, finalPanelList, 
-                    finalScrollBarContainer, finalScrollBarHandle, finalScrollBarHandleTop, 
-                    finalScrollBarHandleBottom, finalScrollBarUpButton));
+            clientThread.invokeLater(() -> performFairyRingScroll(foundCodeWidget, panelList, 
+                    scrollBarContainer, scrollBarHandle, scrollBarHandleTop, 
+                    scrollBarHandleBottom, scrollBarUpButton));
         } else {
             // If fairy ring plugin is not enabled, run the scroll code immediately
             performFairyRingScroll(foundCodeWidget, panelList, scrollBarContainer, scrollBarHandle, 
